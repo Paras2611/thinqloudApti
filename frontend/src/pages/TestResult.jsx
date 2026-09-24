@@ -2,16 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
+import MathRenderer from '../components/MathRenderer';
 import confetti from 'canvas-confetti';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { Award, CheckCircle, XCircle, HelpCircle, Download, ArrowLeft, BarChart2, ShieldCheck } from 'lucide-react';
+import { Award, CheckCircle, XCircle, HelpCircle, Download, ArrowLeft, BarChart2, ShieldCheck, Sparkles, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 
 export default function TestResult() {
   const { id } = useParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [expandedQuestions, setExpandedQuestions] = useState({}); // { [idx]: boolean }
+  const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'CORRECT' | 'INCORRECT' | 'SKIPPED'
 
   useEffect(() => {
     fetchResult();
@@ -220,6 +223,202 @@ export default function TestResult() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Question-Wise Solutions & Explanation Cards */}
+          {showResult && data?.questions && data.questions.length > 0 && (
+            <div className="mb-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>Questions & Detailed Explanations</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Review each question, your chosen option, the verified answer, and step-by-step solutions.
+                  </p>
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
+                  {[
+                    { key: 'ALL', label: 'All' },
+                    { key: 'CORRECT', label: 'Correct' },
+                    { key: 'INCORRECT', label: 'Incorrect' },
+                    { key: 'SKIPPED', label: 'Unanswered' }
+                  ].map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setFilterType(tab.key)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                        filterType === tab.key
+                          ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                          : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {data.questions
+                  .filter(q => {
+                    if (filterType === 'CORRECT') return q.is_correct;
+                    if (filterType === 'INCORRECT') return !q.is_correct && q.selected_option;
+                    if (filterType === 'SKIPPED') return !q.selected_option;
+                    return true;
+                  })
+                  .map(q => {
+                    const isExpanded = expandedQuestions[q.question_id] !== false; // default expanded
+                    const isAnswered = !!q.selected_option;
+                    const isCorrect = q.is_correct;
+
+                    return (
+                      <div
+                        key={q.question_id}
+                        className={`rounded-2xl border transition-all overflow-hidden ${
+                          isCorrect
+                            ? 'bg-slate-900/60 border-emerald-500/30 shadow-md shadow-emerald-500/5'
+                            : isAnswered
+                            ? 'bg-slate-900/60 border-rose-500/30 shadow-md shadow-rose-500/5'
+                            : 'bg-slate-900/40 border-slate-800'
+                        }`}
+                      >
+                        {/* Question Bar Header */}
+                        <div
+                          onClick={() => setExpandedQuestions(prev => ({ ...prev, [q.question_id]: !isExpanded }))}
+                          className="p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-800/40 transition-colors"
+                        >
+                          <div className="flex items-center space-x-3 min-w-0">
+                            <span className="w-7 h-7 rounded-lg bg-slate-800 font-mono text-xs font-bold text-slate-300 flex items-center justify-center flex-shrink-0">
+                              Q{q.index}
+                            </span>
+
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <span className="text-xs font-medium text-slate-400">
+                                  {q.section} · {q.topic}
+                                </span>
+                                <span className={`px-2 py-0.2 rounded text-[10px] font-semibold ${
+                                  q.difficulty === 'Easy'
+                                    ? 'text-emerald-400 bg-emerald-950/40'
+                                    : q.difficulty === 'Medium'
+                                    ? 'text-amber-400 bg-amber-950/40'
+                                    : 'text-rose-400 bg-rose-950/40'
+                                }`}>
+                                  {q.difficulty}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-3 flex-shrink-0">
+                            {isCorrect ? (
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Correct (+1)</span>
+                              </span>
+                            ) : isAnswered ? (
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center space-x-1">
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Incorrect (0)</span>
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                                Unanswered
+                              </span>
+                            )}
+
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-slate-400" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-slate-400" />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Collapsible Content: Question Body + Options + Explanation Card */}
+                        {isExpanded && (
+                          <div className="p-4 sm:p-5 border-t border-slate-800/80 bg-slate-950/40 space-y-4">
+                            {/* Question text */}
+                            <div className="text-sm sm:text-base text-slate-200">
+                              <MathRenderer content={q.question_text} />
+                            </div>
+
+                            {/* Options grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                              {['option_a', 'option_b', 'option_c', 'option_d'].map((optKey, idx) => {
+                                const letter = ['A', 'B', 'C', 'D'][idx];
+                                const optVal = q[optKey];
+                                const isUserSelected = q.selected_option === letter;
+                                const isCorrectOpt = q.correct_option === letter;
+
+                                let optClass = 'bg-slate-900/60 border-slate-800 text-slate-300';
+                                if (isCorrectOpt) {
+                                  optClass = 'bg-emerald-950/40 border-emerald-500 text-emerald-200 font-medium';
+                                } else if (isUserSelected && !isCorrectOpt) {
+                                  optClass = 'bg-rose-950/40 border-rose-500 text-rose-200 font-medium';
+                                }
+
+                                return (
+                                  <div
+                                    key={letter}
+                                    className={`p-3 rounded-xl border flex items-center space-x-2.5 text-xs sm:text-sm ${optClass}`}
+                                  >
+                                    <span className={`w-6 h-6 rounded-md font-mono text-xs font-bold flex items-center justify-center flex-shrink-0 ${
+                                      isCorrectOpt
+                                        ? 'bg-emerald-600 text-white'
+                                        : isUserSelected
+                                        ? 'bg-rose-600 text-white'
+                                        : 'bg-slate-800 text-slate-400'
+                                    }`}>
+                                      {letter}
+                                    </span>
+                                    <div className="flex-1 break-words">
+                                      <MathRenderer content={optVal} />
+                                    </div>
+                                    {isCorrectOpt && (
+                                      <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Correct</span>
+                                    )}
+                                    {isUserSelected && !isCorrectOpt && (
+                                      <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider">Your Answer</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Dedicated Explanation Card */}
+                            <div className="rounded-xl p-4 bg-slate-900/90 border border-indigo-500/30 shadow-lg space-y-2 mt-3">
+                              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                                <div className="flex items-center space-x-2 text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                                  <span>Step-by-Step Explanation & Solution</span>
+                                </div>
+                                <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-indigo-600/20 text-indigo-300 border border-indigo-500/30">
+                                  Correct: Option {q.correct_option}
+                                </span>
+                              </div>
+
+                              <div className="text-xs sm:text-sm text-slate-200 leading-relaxed pt-1 break-words">
+                                {q.explanation ? (
+                                  <MathRenderer content={q.explanation} />
+                                ) : (
+                                  <p className="text-slate-400 text-xs italic">
+                                    The correct option is {q.correct_option}.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           )}

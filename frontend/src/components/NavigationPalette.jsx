@@ -6,6 +6,7 @@ export default function NavigationPalette({
   currentIndex,
   onSelectQuestion,
   answers = {},
+  confirmedAnswers = {},
   markedForReview = {},
   selectedSection,
   onSelectSection,
@@ -15,6 +16,7 @@ export default function NavigationPalette({
 
   const answeredCount = Object.values(answers).filter(val => val !== null && val !== undefined).length;
   const markedCount = Object.values(markedForReview).filter(Boolean).length;
+  const confirmedCount = Object.values(confirmedAnswers).filter(Boolean).length;
   const unansweredCount = questions.length - answeredCount;
 
   // Filter questions if section selected
@@ -90,17 +92,27 @@ export default function NavigationPalette({
           {filteredQuestions.map((q) => {
             const origIdx = q.originalIndex;
             const isCurrent = origIdx === currentIndex;
-            const isAnswered = answers[q.question_id] !== undefined && answers[q.question_id] !== null;
+            const userAns = answers[q.question_id];
+            const isAnswered = userAns !== undefined && userAns !== null;
             const isMarked = !!markedForReview[q.question_id];
+            const isConfirmed = !!confirmedAnswers[q.question_id];
+            const isCorrect = isConfirmed && userAns === q.correct_option;
+            const isWrong = isConfirmed && userAns !== q.correct_option;
 
             let buttonStyles = 'bg-slate-800/80 text-slate-400 border-slate-700/60 hover:border-slate-500';
 
-            if (isMarked) {
+            if (isConfirmed) {
+              if (isCorrect) {
+                buttonStyles = 'bg-emerald-500/25 text-emerald-300 border-emerald-500/70 shadow-sm shadow-emerald-500/20 font-bold';
+              } else {
+                buttonStyles = 'bg-rose-500/25 text-rose-300 border-rose-500/70 shadow-sm shadow-rose-500/20 font-bold';
+              }
+            } else if (isMarked) {
               // Marked for Review (orange/amber)
               buttonStyles = 'bg-amber-500/20 text-amber-300 border-amber-500/60 shadow-sm shadow-amber-500/20';
             } else if (isAnswered) {
               // Answered (green/emerald)
-              buttonStyles = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/60 shadow-sm shadow-emerald-500/20 font-semibold';
+              buttonStyles = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/60 shadow-sm shadow-indigo-500/20 font-semibold';
             }
 
             if (isCurrent) {
@@ -114,9 +126,11 @@ export default function NavigationPalette({
                 className={`relative h-10 rounded-xl border text-xs font-mono transition-all flex items-center justify-center ${buttonStyles}`}
               >
                 <span>{origIdx + 1}</span>
-                {isMarked && (
+                {isConfirmed ? (
+                  <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${isCorrect ? 'bg-emerald-400 shadow-sm shadow-emerald-400' : 'bg-rose-400 shadow-sm shadow-rose-400'}`} />
+                ) : isMarked ? (
                   <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400" />
-                )}
+                ) : null}
               </button>
             );
           })}

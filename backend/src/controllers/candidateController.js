@@ -173,7 +173,7 @@ async function getSessionQuestions(req, res) {
       questions = await db.questions.findMany(q => !q.is_deleted);
     }
 
-    // Strip sensitive fields (correct_option, explanation)
+    // Provide question text, options, and explanation/correct_option for post-confirmation card display
     const sanitizedQuestions = questions.map((q, index) => ({
       index: index + 1,
       question_id: q.question_id,
@@ -184,7 +184,9 @@ async function getSessionQuestions(req, res) {
       option_d: q.option_d,
       section: q.section,
       topic: q.topic,
-      difficulty: q.difficulty
+      difficulty: q.difficulty,
+      correct_option: q.correct_option,
+      explanation: q.explanation || ''
     }));
 
     // Fetch answers already submitted by candidate
@@ -197,7 +199,8 @@ async function getSessionQuestions(req, res) {
       answers: existingAnswers.map(a => ({
         question_id: a.question_id,
         selected_option: a.selected_option,
-        is_marked_for_review: a.is_marked_for_review
+        is_marked_for_review: a.is_marked_for_review,
+        is_confirmed: !!a.is_confirmed
       })),
       attempt: {
         attempt_id: attempt.attempt_id,
@@ -213,11 +216,11 @@ async function getSessionQuestions(req, res) {
   }
 }
 
-// Auto-save answer on click (CI-003 idempotent)
+// Auto-save answer on click (CI-003 idempotent) & handle confirmation
 async function saveAnswer(req, res) {
   try {
     const { id } = req.params;
-    const { question_id, selected_option, is_marked_for_review } = req.body;
+    const { question_id, selected_option, is_marked_for_review, is_confirmed } = req.body;
     const candidateId = req.user.id;
 
     const attempt = await db.candidate_attempts.findOne({
@@ -246,6 +249,7 @@ async function saveAnswer(req, res) {
       };
       if (selected_option !== undefined) updates.selected_option = selected_option;
       if (is_marked_for_review !== undefined) updates.is_marked_for_review = !!is_marked_for_review;
+      if (is_confirmed !== undefined) updates.is_confirmed = !!is_confirmed;
 
       await db.candidate_answers.update({ answer_id: existingAnswer.answer_id }, updates);
 
@@ -270,8 +274,19 @@ async function saveAnswer(req, res) {
           req
         });
       }
+
+      if (is_confirmed) {
+        await logEvent({
+          sessionId: id,
+          candidateId,
+          eventType: 'ANSWER_CONFIRMED',
+          questionId,
+          payload: { selected_option: selected_option !== undefined ? selected_option : prevOption },
+          req
+        });
+      }
     } else {
-      // First time selecting or marking
+      // First time selecting, marking, or confirming
       const newAnswer = {
         answer_id: uuidv4(),
         attempt_id: attempt.attempt_id,
@@ -280,6 +295,7 @@ async function saveAnswer(req, res) {
         question_id,
         selected_option: selected_option || null,
         is_marked_for_review: !!is_marked_for_review,
+        is_confirmed: !!is_confirmed,
         answered_at: now,
         updated_at: now
       };
@@ -306,9 +322,24 @@ async function saveAnswer(req, res) {
           req
         });
       }
+
+      if (is_confirmed) {
+        await logEvent({
+          sessionId: id,
+          candidateId,
+          eventType: 'ANSWER_CONFIRMED',
+          questionId,
+          payload: { selected_option },
+          req
+        });
+      }
     }
 
-    return res.status(200).json({ success: true, saved_at: now });
+    return res.status(200).json({
+      success: true,
+      saved_at: now,
+      is_confirmed: !!is_confirmed
+    });
   } catch (err) {
     console.error('saveAnswer error:', err);
     return res.status(500).json({ error: 'Failed to record answer.' });
@@ -502,6 +533,37 @@ async function getCandidateResult(req, res) {
       return res.status(400).json({ error: 'Test not submitted yet.' });
     }
 
+    const candidateAnswers = await db.candidate_answers.findMany({ attempt_id: attempt.attempt_id });
+    const allQ = await db.questions.findMany(q => !q.is_deleted);
+    let questionIds = session.question_ids || [];
+    let sessionQuestions = [];
+    if (questionIds.length > 0) {
+      sessionQuestions = questionIds.map(qid => allQ.find(q => q.question_id === qid)).filter(Boolean);
+    } else {
+      sessionQuestions = allQ;
+    }
+
+    const reviewQuestions = sessionQuestions.map((q, idx) => {
+      const candAns = candidateAnswers.find(a => a.question_id === q.question_id);
+      return {
+        question_id: q.question_id,
+        index: idx + 1,
+        question_text: q.question_text,
+        option_a: q.option_a,
+        option_b: q.option_b,
+        option_c: q.option_c,
+        option_d: q.option_d,
+        section: q.section,
+        topic: q.topic,
+        difficulty: q.difficulty,
+        correct_option: q.correct_option,
+        explanation: q.explanation || '',
+        selected_option: candAns ? candAns.selected_option : null,
+        is_confirmed: candAns ? !!candAns.is_confirmed : false,
+        is_correct: candAns && candAns.selected_option ? candAns.selected_option === q.correct_option : false
+      };
+    });
+
     return res.status(200).json({
       session: {
         session_id: session.session_id,
@@ -519,7 +581,8 @@ async function getCandidateResult(req, res) {
         submitted_at: attempt.submitted_at,
         submission_type: attempt.submission_type,
         show_result: session.show_result
-      }
+      },
+      questions: reviewQuestions
     });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to retrieve test result.' });

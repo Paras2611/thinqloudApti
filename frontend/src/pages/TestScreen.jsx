@@ -6,7 +6,7 @@ import Timer from '../components/Timer';
 import NavigationPalette from '../components/NavigationPalette';
 import AntiCheatWarning from '../components/AntiCheatWarning';
 import ConfirmSubmitModal from '../components/ConfirmSubmitModal';
-import { Bookmark, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, Layers, Send, RefreshCw, XCircle, LayoutGrid, X } from 'lucide-react';
+import { Bookmark, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, Layers, Send, RefreshCw, XCircle, LayoutGrid, X, Sparkles, HelpCircle, Lock } from 'lucide-react';
 
 export default function TestScreen() {
   const { id } = useParams();
@@ -15,6 +15,8 @@ export default function TestScreen() {
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({}); // { [question_id]: 'A' | 'B' | 'C' | 'D' }
+  const [confirmedAnswers, setConfirmedAnswers] = useState({}); // { [question_id]: boolean }
+  const [isConfirming, setIsConfirming] = useState(false);
   const [markedForReview, setMarkedForReview] = useState({}); // { [question_id]: boolean }
   const [selectedSection, setSelectedSection] = useState('ALL');
   const [secondsRemaining, setSecondsRemaining] = useState(75 * 60);
@@ -40,15 +42,18 @@ export default function TestScreen() {
       const qList = res.data.questions || [];
       setQuestions(qList);
 
-      // Populate existing answers
+      // Populate existing answers and confirmation states
       const ansMap = {};
       const markMap = {};
+      const confMap = {};
       (res.data.answers || []).forEach(a => {
         if (a.selected_option) ansMap[a.question_id] = a.selected_option;
         if (a.is_marked_for_review) markMap[a.question_id] = true;
+        if (a.is_confirmed) confMap[a.question_id] = true;
       });
       setAnswers(ansMap);
       setMarkedForReview(markMap);
+      setConfirmedAnswers(confMap);
 
       // Calculate remaining time
       const startTime = new Date(res.data.attempt.start_time).getTime();
@@ -123,17 +128,26 @@ export default function TestScreen() {
       } else if (e.key === 'ArrowLeft') {
         goToPrev();
       } else if (['1', '2', '3', '4'].includes(e.key)) {
-        const optionMap = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
-        handleOptionSelect(currentQ.question_id, optionMap[e.key]);
+        if (!confirmedAnswers[currentQ.question_id]) {
+          const optionMap = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
+          handleOptionSelect(currentQ.question_id, optionMap[e.key]);
+        }
+      } else if (e.key === 'Enter') {
+        if (!confirmedAnswers[currentQ.question_id] && answers[currentQ.question_id]) {
+          handleConfirmAnswer(currentQ.question_id);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, questions, answers]);
+  }, [currentIndex, questions, answers, confirmedAnswers, isConfirming]);
 
   // Option selection with idempotent auto-save (CI-003)
   const handleOptionSelect = async (questionId, optionLetter) => {
+    // If answer already confirmed, lock selection
+    if (confirmedAnswers[questionId]) return;
+
     const isSameOption = answers[questionId] === optionLetter;
     const newSelected = isSameOption ? null : optionLetter; // Toggle selection
 
@@ -147,10 +161,37 @@ export default function TestScreen() {
       await api.post(`/candidate/sessions/${id}/answer`, {
         question_id: questionId,
         selected_option: newSelected,
-        is_marked_for_review: !!markedForReview[questionId]
+        is_marked_for_review: !!markedForReview[questionId],
+        is_confirmed: false
       });
     } catch (err) {
       console.error('Failed to auto-save answer:', err);
+    }
+  };
+
+  // Confirm Answer explicitly to reveal explanation card
+  const handleConfirmAnswer = async (questionId) => {
+    const selected = answers[questionId];
+    if (!selected || isConfirming) return;
+
+    setIsConfirming(true);
+    // Optimistically mark as confirmed
+    setConfirmedAnswers(prev => ({
+      ...prev,
+      [questionId]: true
+    }));
+
+    try {
+      await api.post(`/candidate/sessions/${id}/answer`, {
+        question_id: questionId,
+        selected_option: selected,
+        is_marked_for_review: !!markedForReview[questionId],
+        is_confirmed: true
+      });
+    } catch (err) {
+      console.error('Failed to confirm answer:', err);
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -168,15 +209,18 @@ export default function TestScreen() {
       await api.post(`/candidate/sessions/${id}/answer`, {
         question_id: questionId,
         selected_option: answers[questionId] || null,
-        is_marked_for_review: newMark
+        is_marked_for_review: newMark,
+        is_confirmed: !!confirmedAnswers[questionId]
       });
     } catch (err) {
       console.error('Failed to update mark for review:', err);
     }
   };
 
-  // Clear answer selection
+  // Clear answer selection (only permitted if not confirmed)
   const handleClearResponse = async (questionId) => {
+    if (confirmedAnswers[questionId]) return;
+
     setAnswers(prev => {
       const next = { ...prev };
       delete next[questionId];
@@ -187,7 +231,8 @@ export default function TestScreen() {
       await api.post(`/candidate/sessions/${id}/answer`, {
         question_id: questionId,
         selected_option: null,
-        is_marked_for_review: !!markedForReview[questionId]
+        is_marked_for_review: !!markedForReview[questionId],
+        is_confirmed: false
       });
     } catch (err) {
       console.error('Failed to clear answer:', err);
@@ -376,22 +421,41 @@ export default function TestScreen() {
                 const letter = ['A', 'B', 'C', 'D'][idx];
                 const optText = currentQ[optKey];
                 const isSelected = answers[currentQ.question_id] === letter;
+                const isConfirmed = !!confirmedAnswers[currentQ.question_id];
+                const isCorrect = currentQ.correct_option === letter;
+                const isUserWrong = isConfirmed && isSelected && !isCorrect;
+
+                let cardStyle = '';
+                let badgeStyle = '';
+
+                if (isConfirmed) {
+                  if (isCorrect) {
+                    cardStyle = 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-100 shadow-md shadow-emerald-500/10 cursor-default';
+                    badgeStyle = 'bg-emerald-600 text-white border-emerald-500';
+                  } else if (isUserWrong) {
+                    cardStyle = 'bg-rose-950/40 border-rose-500 ring-2 ring-rose-500/30 text-rose-100 shadow-md shadow-rose-500/10 cursor-default';
+                    badgeStyle = 'bg-rose-600 text-white border-rose-500';
+                  } else {
+                    cardStyle = 'bg-slate-900/30 border-slate-800/80 text-slate-500 opacity-60 cursor-not-allowed';
+                    badgeStyle = 'bg-slate-800 text-slate-500 border-slate-700';
+                  }
+                } else {
+                  if (isSelected) {
+                    cardStyle = 'bg-indigo-600/20 border-indigo-500 ring-2 ring-indigo-500/30 text-white shadow-md cursor-pointer';
+                    badgeStyle = 'bg-indigo-600 text-white border-indigo-500';
+                  } else {
+                    cardStyle = 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/50 text-slate-300 cursor-pointer';
+                    badgeStyle = 'bg-slate-800 text-slate-400 border-slate-700';
+                  }
+                }
 
                 return (
                   <div
                     key={letter}
                     onClick={() => handleOptionSelect(currentQ.question_id, letter)}
-                    className={`p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex items-center space-x-3 sm:space-x-3.5 ${
-                      isSelected
-                        ? 'bg-indigo-600/20 border-indigo-500 ring-2 ring-indigo-500/30 text-white shadow-md'
-                        : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/50 text-slate-300'
-                    }`}
+                    className={`p-3.5 sm:p-4 rounded-xl border transition-all flex items-center space-x-3 sm:space-x-3.5 ${cardStyle}`}
                   >
-                    <div className={`w-7 h-7 rounded-lg font-mono text-xs font-bold flex items-center justify-center border transition-colors flex-shrink-0 ${
-                      isSelected
-                        ? 'bg-indigo-600 text-white border-indigo-500'
-                        : 'bg-slate-800 text-slate-400 border-slate-700'
-                    }`}>
+                    <div className={`w-7 h-7 rounded-lg font-mono text-xs font-bold flex items-center justify-center border transition-colors flex-shrink-0 ${badgeStyle}`}>
                       {letter}
                     </div>
 
@@ -399,19 +463,148 @@ export default function TestScreen() {
                       <MathRenderer content={optText} />
                     </div>
 
-                    {isSelected && (
+                    {isConfirmed ? (
+                      isCorrect ? (
+                        <span className="flex-shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center space-x-1 animate-fade-in">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Correct Answer</span>
+                        </span>
+                      ) : isUserWrong ? (
+                        <span className="flex-shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center space-x-1 animate-fade-in">
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Your Choice (Incorrect)</span>
+                        </span>
+                      ) : null
+                    ) : isSelected ? (
                       <CheckCircle2 className="w-5 h-5 text-indigo-400 flex-shrink-0 animate-fade-in" />
-                    )}
+                    ) : null}
                   </div>
                 );
               })}
             </div>
+
+            {/* Answer Confirmation Bar (Shown if answer is NOT yet confirmed) */}
+            {!confirmedAnswers[currentQ.question_id] && (
+              <div className="mt-4 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-md">
+                <div className="flex items-center space-x-2 text-xs text-slate-400">
+                  <span className={`w-2 h-2 rounded-full ${answers[currentQ.question_id] ? 'bg-indigo-400 animate-pulse' : 'bg-slate-600'}`} />
+                  <span>
+                    {answers[currentQ.question_id]
+                      ? `Option ${answers[currentQ.question_id]} selected. Confirm your answer to verify and view the explanation.`
+                      : 'Select an option above, then click Confirm Answer to check the solution.'}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  {answers[currentQ.question_id] && (
+                    <button
+                      type="button"
+                      onClick={() => handleClearResponse(currentQ.question_id)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors flex items-center space-x-1"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Clear</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmAnswer(currentQ.question_id)}
+                    disabled={!answers[currentQ.question_id] || isConfirming}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-indigo-600/30 flex items-center justify-center space-x-1.5 transition-all"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirm Answer</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Explanation Card (Shown after confirming the answer - even if correct or wrong) */}
+            {confirmedAnswers[currentQ.question_id] && (
+              <div className={`mt-5 rounded-2xl border p-4 sm:p-6 transition-all animate-fade-in shadow-xl ${
+                answers[currentQ.question_id] === currentQ.correct_option
+                  ? 'bg-gradient-to-b from-emerald-950/30 via-slate-900/90 to-slate-900 border-emerald-500/40 shadow-emerald-500/5'
+                  : 'bg-gradient-to-b from-rose-950/30 via-slate-900/90 to-slate-900 border-rose-500/40 shadow-rose-500/5'
+              }`}>
+                {/* Status Header */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-4 border-b border-slate-800">
+                  <div className="flex items-center space-x-3">
+                    {answers[currentQ.question_id] === currentQ.correct_option ? (
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                        <CheckCircle2 className="w-5 h-5" />
+                      </div>
+                    ) : (
+                      <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center flex-shrink-0">
+                        <XCircle className="w-5 h-5" />
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`text-sm font-bold ${
+                          answers[currentQ.question_id] === currentQ.correct_option ? 'text-emerald-400' : 'text-rose-400'
+                        }`}>
+                          {answers[currentQ.question_id] === currentQ.correct_option ? 'Correct Answer!' : 'Incorrect Answer'}
+                        </span>
+                        <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                          {answers[currentQ.question_id] === currentQ.correct_option ? '+1.0 Mark' : '0.0 Marks'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {answers[currentQ.question_id] === currentQ.correct_option
+                          ? `Great job! Your selection of Option ${answers[currentQ.question_id]} is correct.`
+                          : `You selected Option ${answers[currentQ.question_id] || 'None'}. The correct answer is Option ${currentQ.correct_option}.`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-mono px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-semibold">
+                      Correct: Option {currentQ.correct_option}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Explanation & Solution Card Body */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-indigo-300">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>Explanation & Step-by-Step Solution</span>
+                  </div>
+
+                  <div className="p-4 sm:p-5 rounded-xl bg-slate-950/70 border border-slate-800 text-slate-200 text-xs sm:text-sm md:text-base leading-relaxed break-words">
+                    {currentQ.explanation ? (
+                      <MathRenderer content={currentQ.explanation} />
+                    ) : (
+                      <p className="text-slate-400 text-xs italic">
+                        The correct answer is Option {currentQ.correct_option}.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Advance Bar */}
+                {currentIndex < questions.length - 1 && (
+                  <div className="mt-4 pt-3 border-t border-slate-800/60 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={goToNext}
+                      className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center space-x-1.5 transition-colors border border-slate-700"
+                    >
+                      <span>Proceed to Next Question</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Bottom Action Footer */}
           <div className="pt-5 mt-6 border-t border-slate-800 flex items-center justify-between gap-2">
             <div>
-              {answers[currentQ.question_id] && (
+              {answers[currentQ.question_id] && !confirmedAnswers[currentQ.question_id] && (
                 <button
                   type="button"
                   onClick={() => handleClearResponse(currentQ.question_id)}
@@ -455,6 +648,7 @@ export default function TestScreen() {
             currentIndex={currentIndex}
             onSelectQuestion={handleSelectQuestion}
             answers={answers}
+            confirmedAnswers={confirmedAnswers}
             markedForReview={markedForReview}
             selectedSection={selectedSection}
             onSelectSection={setSelectedSection}
@@ -471,6 +665,7 @@ export default function TestScreen() {
               currentIndex={currentIndex}
               onSelectQuestion={handleSelectQuestion}
               answers={answers}
+              confirmedAnswers={confirmedAnswers}
               markedForReview={markedForReview}
               selectedSection={selectedSection}
               onSelectSection={setSelectedSection}

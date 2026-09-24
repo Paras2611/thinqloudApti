@@ -36,7 +36,7 @@ Upon first server start, the system automatically provisions the root administra
 | Attribute | Seed Value |
 |---|---|
 | **Email** | `paras.jagadish.patil@gmail.com` |
-| **Password** | `2@Paras` *(hashed with bcrypt, cost factor 12)* |
+| **Password** | `2@*****` *(hashed with bcrypt, cost factor 12)* |
 | **Role** | `SYSTEM_ADMIN` |
 | **Demo Candidate** | `candidate.demo@thinqloud.com` / `Demo@123` *(Roll: `TQ-2026-001`)* |
 | **Pre-Seeded Mock Session** | `Thinqloud Campus Placement Screening Mock - Batch 2026` *(Access Code: `THINQ6`)* |

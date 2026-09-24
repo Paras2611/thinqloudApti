@@ -108,6 +108,23 @@ class JsonTable {
     return true;
   }
 
+  async deleteMany(predicate) {
+    const initialLen = this.cache.length;
+    if (typeof predicate === 'object') {
+      const criteria = predicate;
+      this.cache = this.cache.filter(item => {
+        return !Object.entries(criteria).every(([k, v]) => item[k] === v);
+      });
+    } else if (typeof predicate === 'function') {
+      this.cache = this.cache.filter(item => !predicate(item));
+    }
+    const deletedCount = initialLen - this.cache.length;
+    if (deletedCount > 0) {
+      this._save();
+    }
+    return deletedCount;
+  }
+
   async count(predicate = () => true) {
     const list = await this.findMany(predicate);
     return list.length;

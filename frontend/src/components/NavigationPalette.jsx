@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bookmark, CheckCircle2, Circle, Eye } from 'lucide-react';
+import { Bookmark, CheckCircle2, Circle, Eye, X } from 'lucide-react';
 
 export default function NavigationPalette({
   questions,
@@ -8,7 +8,8 @@ export default function NavigationPalette({
   answers = {},
   markedForReview = {},
   selectedSection,
-  onSelectSection
+  onSelectSection,
+  onClose
 }) {
   const sections = ['ALL', 'Quantitative', 'Logical', 'Verbal', 'Grammar'];
 
@@ -21,14 +22,31 @@ export default function NavigationPalette({
     ? questions.map((q, idx) => ({ ...q, originalIndex: idx })).filter(q => q.section === selectedSection)
     : questions.map((q, idx) => ({ ...q, originalIndex: idx }));
 
+  const handleSelect = (idx) => {
+    onSelectQuestion(idx);
+    if (onClose) onClose();
+  };
+
   return (
     <div className="w-full flex flex-col h-full bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl backdrop-blur-md">
       {/* Header and Summary Chips */}
       <div className="pb-3 border-b border-slate-800">
-        <h3 className="text-sm font-semibold text-white tracking-wide uppercase flex items-center justify-between">
-          <span>Question Palette</span>
-          <span className="text-xs font-mono text-slate-400">{questions.length} Total</span>
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-white tracking-wide uppercase flex items-center space-x-2">
+            <span>Question Palette</span>
+            <span className="text-xs font-mono text-slate-400 font-normal">({questions.length} Qs)</span>
+          </h3>
+
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              aria-label="Close question palette"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
         {/* Legend / Status counts */}
         <div className="grid grid-cols-3 gap-2 mt-3 text-[11px] font-medium">
@@ -92,7 +110,7 @@ export default function NavigationPalette({
             return (
               <button
                 key={q.question_id}
-                onClick={() => onSelectQuestion(origIdx)}
+                onClick={() => handleSelect(origIdx)}
                 className={`relative h-10 rounded-xl border text-xs font-mono transition-all flex items-center justify-center ${buttonStyles}`}
               >
                 <span>{origIdx + 1}</span>

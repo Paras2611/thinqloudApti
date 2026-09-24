@@ -6,7 +6,7 @@ import Timer from '../components/Timer';
 import NavigationPalette from '../components/NavigationPalette';
 import AntiCheatWarning from '../components/AntiCheatWarning';
 import ConfirmSubmitModal from '../components/ConfirmSubmitModal';
-import { Bookmark, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, Layers, Send, RefreshCw, XCircle } from 'lucide-react';
+import { Bookmark, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, Layers, Send, RefreshCw, XCircle, LayoutGrid, X } from 'lucide-react';
 
 export default function TestScreen() {
   const { id } = useParams();
@@ -22,6 +22,7 @@ export default function TestScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [autoSubmitCountdown, setAutoSubmitCountdown] = useState(null);
+  const [mobilePaletteOpen, setMobilePaletteOpen] = useState(false);
 
   // Tab switch anti-cheat states
   const [tabSwitches, setTabSwitches] = useState(0);
@@ -260,23 +261,23 @@ export default function TestScreen() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col select-none">
       {/* Top Test Header Bar */}
-      <header className="sticky top-0 z-30 w-full border-b border-slate-800 bg-slate-950/90 backdrop-blur-md px-4 sm:px-6 py-2.5 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
+      <header className="sticky top-0 z-30 w-full border-b border-slate-800 bg-slate-950/95 backdrop-blur-md px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2">
+        <div className="flex items-center space-x-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md flex-shrink-0">
             TQ
           </div>
-          <div>
-            <span className="text-xs font-semibold text-white tracking-wide block truncate max-w-[200px] sm:max-w-md">
-              Campus Assessment · Thinqloud VQAR
+          <div className="min-w-0">
+            <span className="text-xs font-semibold text-white tracking-wide block truncate max-w-[130px] sm:max-w-xs md:max-w-md">
+              Thinqloud VQAR Assessment
             </span>
-            <span className="text-[10px] text-slate-400">
-              Section: <strong className="text-indigo-400">{currentQ?.section}</strong> · Topic: {currentQ?.topic}
+            <span className="text-[10px] text-slate-400 block truncate">
+              Sec: <strong className="text-indigo-400">{currentQ?.section}</strong> · {currentQ?.topic}
             </span>
           </div>
         </div>
 
         {/* Live Timer & Submit CTA */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
           <Timer
             initialSeconds={secondsRemaining}
             onExpire={handleTimerExpire}
@@ -284,7 +285,7 @@ export default function TestScreen() {
 
           <button
             onClick={() => setShowConfirmModal(true)}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 flex items-center space-x-1.5 transition-all"
+            className="px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 flex items-center space-x-1.5 transition-all"
           >
             <Send className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Submit Test</span>
@@ -301,13 +302,37 @@ export default function TestScreen() {
       )}
 
       {/* Main Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+        {/* Mobile Quick Palette Switcher Bar (Visible only on < lg) */}
+        <div className="lg:hidden flex items-center justify-between p-3 rounded-xl bg-slate-900/90 border border-slate-800">
+          <div className="flex items-center space-x-2 text-xs">
+            <span className="font-bold text-white font-mono">Q {currentIndex + 1} / {questions.length}</span>
+            <span className="text-slate-500">·</span>
+            <span className="text-emerald-400">{answeredCount} ans</span>
+            {markedCount > 0 && (
+              <>
+                <span className="text-slate-500">·</span>
+                <span className="text-amber-400">{markedCount} marked</span>
+              </>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMobilePaletteOpen(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-xs font-semibold"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Question Grid</span>
+          </button>
+        </div>
+
         {/* Left: Question Card (8 columns on lg) */}
-        <div className="lg:col-span-8 flex flex-col justify-between glass-panel rounded-2xl p-6 sm:p-8 border border-slate-800 shadow-xl relative min-h-[500px]">
+        <div className="lg:col-span-8 flex flex-col justify-between glass-panel rounded-2xl p-4 sm:p-8 border border-slate-800 shadow-xl relative min-h-[460px] sm:min-h-[500px]">
           <div>
             {/* Question Header & Chips */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-800">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 text-xs font-mono font-bold">
                   Q {currentIndex + 1} of {questions.length}
                 </span>
@@ -341,12 +366,12 @@ export default function TestScreen() {
             </div>
 
             {/* Question Body with KaTeX rendering */}
-            <div className="py-6 text-base sm:text-lg">
+            <div className="py-5 sm:py-6 text-sm sm:text-base md:text-lg break-words">
               <MathRenderer content={currentQ?.question_text} />
             </div>
 
             {/* 4 Options (A, B, C, D) */}
-            <div className="space-y-3 pt-2">
+            <div className="space-y-2.5 sm:space-y-3 pt-2">
               {['option_a', 'option_b', 'option_c', 'option_d'].map((optKey, idx) => {
                 const letter = ['A', 'B', 'C', 'D'][idx];
                 const optText = currentQ[optKey];
@@ -356,13 +381,13 @@ export default function TestScreen() {
                   <div
                     key={letter}
                     onClick={() => handleOptionSelect(currentQ.question_id, letter)}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center space-x-3.5 ${
+                    className={`p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex items-center space-x-3 sm:space-x-3.5 ${
                       isSelected
                         ? 'bg-indigo-600/20 border-indigo-500 ring-2 ring-indigo-500/30 text-white shadow-md'
                         : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/50 text-slate-300'
                     }`}
                   >
-                    <div className={`w-7 h-7 rounded-lg font-mono text-xs font-bold flex items-center justify-center border transition-colors ${
+                    <div className={`w-7 h-7 rounded-lg font-mono text-xs font-bold flex items-center justify-center border transition-colors flex-shrink-0 ${
                       isSelected
                         ? 'bg-indigo-600 text-white border-indigo-500'
                         : 'bg-slate-800 text-slate-400 border-slate-700'
@@ -370,7 +395,7 @@ export default function TestScreen() {
                       {letter}
                     </div>
 
-                    <div className="flex-1 text-sm sm:text-base">
+                    <div className="flex-1 text-xs sm:text-sm md:text-base break-words">
                       <MathRenderer content={optText} />
                     </div>
 
@@ -384,36 +409,37 @@ export default function TestScreen() {
           </div>
 
           {/* Bottom Action Footer */}
-          <div className="pt-6 mt-6 border-t border-slate-800 flex items-center justify-between">
-            <div className="flex items-center space-x-2">
+          <div className="pt-5 mt-6 border-t border-slate-800 flex items-center justify-between gap-2">
+            <div>
               {answers[currentQ.question_id] && (
                 <button
                   type="button"
                   onClick={() => handleClearResponse(currentQ.question_id)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors flex items-center space-x-1"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors flex items-center space-x-1"
                 >
                   <XCircle className="w-3.5 h-3.5" />
-                  <span>Clear Response</span>
+                  <span className="hidden sm:inline">Clear Response</span>
+                  <span className="sm:hidden">Clear</span>
                 </button>
               )}
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <button
                 type="button"
                 onClick={goToPrev}
                 disabled={currentIndex === 0}
-                className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700 text-xs font-semibold flex items-center space-x-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="px-3 sm:px-4 py-2 rounded-xl border border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700 text-xs font-semibold flex items-center space-x-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
-                <span>Previous</span>
+                <span>Prev</span>
               </button>
 
               <button
                 type="button"
                 onClick={goToNext}
                 disabled={currentIndex === questions.length - 1}
-                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center space-x-1.5 disabled:opacity-30 disabled:cursor-not-allowed shadow-md shadow-indigo-600/30 transition-all"
+                className="px-4 sm:px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center space-x-1.5 disabled:opacity-30 disabled:cursor-not-allowed shadow-md shadow-indigo-600/30 transition-all"
               >
                 <span>Next</span>
                 <ChevronRight className="w-4 h-4" />
@@ -422,8 +448,8 @@ export default function TestScreen() {
           </div>
         </div>
 
-        {/* Right: Navigation Palette (4 columns on lg) */}
-        <div className="lg:col-span-4 h-full">
+        {/* Right: Navigation Palette (Desktop only, 4 columns on lg) */}
+        <div className="hidden lg:block lg:col-span-4 h-full">
           <NavigationPalette
             questions={questions}
             currentIndex={currentIndex}
@@ -435,6 +461,24 @@ export default function TestScreen() {
           />
         </div>
       </main>
+
+      {/* Mobile Question Palette Modal / Bottom Drawer */}
+      {mobilePaletteOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full sm:max-w-md max-h-[85vh] flex flex-col bg-slate-900 border border-slate-700 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden">
+            <NavigationPalette
+              questions={questions}
+              currentIndex={currentIndex}
+              onSelectQuestion={handleSelectQuestion}
+              answers={answers}
+              markedForReview={markedForReview}
+              selectedSection={selectedSection}
+              onSelectSection={setSelectedSection}
+              onClose={() => setMobilePaletteOpen(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Confirm Submit Modal */}
       <ConfirmSubmitModal

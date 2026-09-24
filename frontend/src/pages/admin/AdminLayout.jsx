@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   Layers,
@@ -10,12 +10,16 @@ import {
   FileText,
   LogOut,
   ChevronRight,
-  ShieldAlert
+  ShieldAlert,
+  Menu,
+  X
 } from 'lucide-react';
 
 export default function AdminLayout() {
   const { user, isAdmin, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     await logout();
@@ -31,6 +35,8 @@ export default function AdminLayout() {
     { to: '/admin/logs', icon: FileText, label: 'Log Explorer' }
   ];
 
+  const currentNav = navLinks.find(link => location.pathname.startsWith(link.to)) || navLinks[0];
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -38,7 +44,7 @@ export default function AdminLayout() {
           <ShieldAlert className="w-12 h-12 text-rose-400 mx-auto mb-3" />
           <h2 className="text-xl font-bold text-white">Administrator Access Required</h2>
           <p className="text-xs text-slate-400 mt-2 mb-6">
-            Please log in with the System Admin credentials (paras.jagadish.patil@gmail.com) to access the control panel.
+            Please log in with your System Admin credentials to access the control panel.
           </p>
           <button
             onClick={() => navigate('/admin/login')}
@@ -53,8 +59,41 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row">
-      {/* Sidebar Navigation */}
-      <aside className="w-full md:w-64 bg-slate-900/90 border-r border-slate-800 flex flex-col justify-between p-4 sticky top-0 md:h-screen z-20">
+      {/* Mobile Top Bar */}
+      <div className="md:hidden sticky top-0 z-30 bg-slate-900/95 border-b border-slate-800 backdrop-blur-md px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-cyan-400 flex items-center justify-center shadow-md shadow-indigo-500/25">
+            <Layers className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <span className="font-bold text-xs text-white block">Thinqloud Admin</span>
+            <span className="text-[10px] text-indigo-400">{currentNav?.label}</span>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 hover:text-white"
+          aria-label="Toggle navigation menu"
+        >
+          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+      </div>
+
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-20 bg-slate-950/80 backdrop-blur-sm"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Navigation (Desktop permanent, Mobile slide drawer) */}
+      <aside
+        className={`fixed md:sticky top-0 z-30 h-screen w-64 bg-slate-900/95 border-r border-slate-800 flex flex-col justify-between p-4 transition-transform duration-200 ease-in-out md:translate-x-0 ${
+          mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
         <div>
           {/* Brand header */}
           <div className="flex items-center space-x-3 px-2 py-3 mb-6">
@@ -77,6 +116,7 @@ export default function AdminLayout() {
                 <NavLink
                   key={item.to}
                   to={item.to}
+                  onClick={() => setMobileMenuOpen(false)}
                   className={({ isActive }) =>
                     `flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
                       isActive
@@ -119,7 +159,7 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 min-w-0">
         <Outlet />
       </main>
     </div>

@@ -130,7 +130,7 @@ async function createSession(req, res) {
   }
 }
 
-// Update session (only allowed in DRAFT state per PRD SA-002)
+// Update session (allowed for DRAFT, SCHEDULED, ACTIVE, and ENDED previous sessions)
 async function updateSession(req, res) {
   try {
     const { id } = req.params;
@@ -140,14 +140,10 @@ async function updateSession(req, res) {
       return res.status(404).json({ error: 'Session not found.' });
     }
 
-    if (session.status !== 'DRAFT') {
-      return res.status(400).json({ error: 'Only DRAFT sessions can be edited. Fields are locked after activation.' });
-    }
-
     const allowedFields = [
       'title', 'description', 'duration_minutes', 'start_time', 'end_time',
       'sections', 'shuffle_questions', 'shuffle_options', 'show_result',
-      'negative_marking', 'access_code', 'question_ids'
+      'negative_marking', 'access_code', 'question_ids', 'status'
     ];
 
     const updates = { updated_at: new Date().toISOString() };
@@ -157,23 +153,70 @@ async function updateSession(req, res) {
       }
     }
 
+    if (updates.access_code !== undefined) {
+      updates.access_code = updates.access_code ? updates.access_code.trim().toUpperCase() : '';
+    }
+
     if (updates.question_ids) {
       updates.total_questions = updates.question_ids.length;
     }
 
+    // If session is set to ACTIVE (e.g. starting previous session), ensure valid end_time
+    if (updates.status === 'ACTIVE') {
+      const currentEnd = updates.end_time || session.end_time;
+      if (!currentEnd || new Date(currentEnd) <= new Date()) {
+        updates.end_time = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      }
+      if (!session.start_time || new Date(session.start_time) > new Date()) {
+        updates.start_time = new Date().toISOString();
+      }
+    }
+
+    // Optional reset of prior candidate attempts (e.g. for restarting a completed mock)
+    if (req.body.reset_attempts) {
+      const attempts = await db.candidate_attempts.findMany({ session_id: id });
+      for (const att of attempts) {
+        await db.candidate_answers.deleteMany({ attempt_id: att.attempt_id });
+      }
+      await db.candidate_attempts.deleteMany({ session_id: id });
+      await logEvent({
+        adminId: req.user.id,
+        sessionId: id,
+        eventType: 'SESSION_ATTEMPTS_RESET',
+        payload: { resetCount: attempts.length },
+        req
+      });
+    }
+
     const updated = await db.sessions.update({ session_id: id }, updates);
+
+    // Notify connected WebSocket clients of status or session updates
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`session_${id}`).emit('session_updated', { session_id: id, session: updated });
+      io.emit('session_updated', { session_id: id, session: updated });
+    }
+
+    await logEvent({
+      adminId: req.user.id,
+      sessionId: id,
+      eventType: 'SESSION_UPDATED',
+      payload: { updates, prevStatus: session.status },
+      req
+    });
 
     return res.status(200).json({ success: true, session: updated });
   } catch (err) {
+    console.error('updateSession error:', err);
     return res.status(500).json({ error: 'Failed to update session.' });
   }
 }
 
-// Change session status (Draft -> Scheduled -> Active -> Ended)
+// Change session status (Draft <-> Scheduled <-> Active <-> Ended)
 async function changeSessionStatus(req, res) {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, reset_attempts } = req.body;
 
     const validStatuses = ['DRAFT', 'SCHEDULED', 'ACTIVE', 'ENDED'];
     if (!validStatuses.includes(status)) {
@@ -187,6 +230,32 @@ async function changeSessionStatus(req, res) {
 
     const prevStatus = session.status;
     const updates = { status, updated_at: new Date().toISOString() };
+
+    // If starting or reactivating session to ACTIVE
+    if (status === 'ACTIVE') {
+      if (!session.end_time || new Date(session.end_time) <= new Date()) {
+        updates.end_time = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      }
+      if (!session.start_time || new Date(session.start_time) > new Date()) {
+        updates.start_time = new Date().toISOString();
+      }
+
+      // If reset_attempts flag is provided, clear previous candidate attempts so candidates can re-attempt
+      if (reset_attempts) {
+        const attempts = await db.candidate_attempts.findMany({ session_id: id });
+        for (const att of attempts) {
+          await db.candidate_answers.deleteMany({ attempt_id: att.attempt_id });
+        }
+        await db.candidate_attempts.deleteMany({ session_id: id });
+        await logEvent({
+          adminId: req.user.id,
+          sessionId: id,
+          eventType: 'SESSION_ATTEMPTS_RESET',
+          payload: { resetCount: attempts.length },
+          req
+        });
+      }
+    }
 
     // If moving to ENDED, auto-submit all in-progress candidate attempts
     if (status === 'ENDED' && prevStatus !== 'ENDED') {
@@ -247,6 +316,7 @@ async function changeSessionStatus(req, res) {
         adminId: req.user.id,
         sessionId: id,
         eventType: 'SESSION_ACTIVATED',
+        payload: { reactivated: prevStatus === 'ENDED', reset_attempts: !!reset_attempts },
         req
       });
     }
@@ -294,7 +364,7 @@ async function cloneSession(req, res) {
   }
 }
 
-// Delete session (SA-006: only allowed in DRAFT)
+// Delete session (allowed for DRAFT and ENDED sessions)
 async function deleteSession(req, res) {
   try {
     const { id } = req.params;
@@ -303,9 +373,16 @@ async function deleteSession(req, res) {
       return res.status(404).json({ error: 'Session not found.' });
     }
 
-    if (session.status !== 'DRAFT') {
-      return res.status(400).json({ error: 'Only DRAFT sessions can be deleted. Non-draft sessions are preserved for audit integrity.' });
+    if (session.status === 'ACTIVE') {
+      return res.status(400).json({ error: 'Cannot delete an ACTIVE session. Please end the session first.' });
     }
+
+    // Clean up attempts and answers associated with session
+    const attempts = await db.candidate_attempts.findMany({ session_id: id });
+    for (const att of attempts) {
+      await db.candidate_answers.deleteMany({ attempt_id: att.attempt_id });
+    }
+    await db.candidate_attempts.deleteMany({ session_id: id });
 
     await db.sessions.delete({ session_id: id });
     return res.status(200).json({ success: true, message: 'Session deleted successfully.' });

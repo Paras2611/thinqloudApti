@@ -58,9 +58,20 @@ export default function ResultsLeaderboard() {
     }
   }
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     if (!selectedSessionId) return;
-    window.open(`/api/admin/sessions/${selectedSessionId}/export`, '_blank');
+    try {
+      const res = await api.get(`/admin/sessions/${selectedSessionId}/export`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `thinqloud_session_${selectedSessionId}_results.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      alert('Failed to export CSV results. Ensure backend is reachable.');
+    }
   };
 
   const filteredLeaderboard = leaderboard.filter(c =>
@@ -74,17 +85,17 @@ export default function ResultsLeaderboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Results & Leaderboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Results & Leaderboard</h1>
           <p className="text-xs text-slate-400 mt-1">
             Official candidate scores, section accuracy metrics, and CSV reporting
           </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <select
             value={selectedSessionId}
             onChange={(e) => setSelectedSessionId(e.target.value)}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none max-w-xs truncate"
+            className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none max-w-xs truncate"
           >
             {sessions.map((s) => (
               <option key={s.session_id} value={s.session_id}>

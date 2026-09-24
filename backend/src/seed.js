@@ -485,23 +485,6 @@ async function autoSeed() {
       console.log(`✅ Seeded Active Test Session: "${session.title}" (Access Code: THINQ6)`);
     }
 
-    // 4. Seed a sample Candidate user for testing
-    const sampleCandEmail = 'candidate.demo@thinqloud.com';
-    const existingCand = await db.users.findOne({ email: sampleCandEmail });
-    if (!existingCand) {
-      const candHash = await bcrypt.hash('Demo@123', 12);
-      await db.users.create({
-        id: uuidv4(),
-        email: sampleCandEmail,
-        name: 'Demo Candidate',
-        roll_number: 'TQ-2026-001',
-        password_hash: candHash,
-        role: 'CANDIDATE',
-        created_at: new Date().toISOString()
-      });
-      console.log(`✅ Seeded Demo Candidate: ${sampleCandEmail} / Demo@123 (Roll: TQ-2026-001)`);
-    }
-
     console.log('🎉 Database initialization complete!');
   } catch (err) {
     console.error('Database seed error:', err);

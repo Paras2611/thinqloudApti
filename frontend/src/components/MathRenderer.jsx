@@ -21,7 +21,7 @@ export default function MathRenderer({ content, className = '' }) {
         const math = part.slice(2, -2);
         try {
           const html = katex.renderToString(math, { displayMode: true, throwOnError: false });
-          return <span key={index} dangerouslySetInnerHTML={{ __html: html }} className="block my-2" />;
+          return <span key={index} dangerouslySetInnerHTML={{ __html: html }} className="block my-2 overflow-x-auto max-w-full text-center" />;
         } catch (e) {
           return <span key={index} className="font-mono text-amber-400">{part}</span>;
         }

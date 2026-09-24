@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: aptitude-api
+    name: thinqloudapti
     env: node
     region: singapore
     plan: free

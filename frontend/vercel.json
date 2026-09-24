@@ -5,7 +5,8 @@
   "framework": "vite",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "env": {
-    "VITE_API_URL": "@aptitude_api_url",
-    "VITE_APP_NAME": "Aptitude Test Platform"
+    "VITE_API_URL": "https://thinqloudapti.onrender.com",
+    "VITE_SOCKET_URL": "wss://thinqloudapti.onrender.com",
+    "VITE_APP_NAME": "Thinqloud Aptitude Test Platform"
   }
 }

@@ -11,8 +11,8 @@ This guide outlines the complete end-to-end production deployment instructions f
 | Layer | Service Provider | Public/Internal URL Pattern | Purpose |
 |---|---|---|---|
 | **Frontend** | **Vercel** | `https://thinqloud-apti.vercel.app` | React 18 + Vite SPA (Candidate Runner + Admin Console) |
-| **Backend API** | **Render** | `https://aptitude-api.onrender.com` | Node.js / Express REST API |
-| **Realtime** | **Render (WebSockets)** | `wss://aptitude-api.onrender.com` | Socket.io real-time candidate live monitor |
+| **Backend API** | **Render** | `https://thinqloudapti.onrender.com` | Node.js / Express REST API |
+| **Realtime** | **Render (WebSockets)** | `wss://thinqloudapti.onrender.com` | Socket.io real-time candidate live monitor |
 | **Database** | **Render Postgres** | Internal Connection String | Sessions, Questions, Attempts, Audit Logs |
 | **Cache** | **Render Redis** | Internal Connection String | Rate limiting and session caching |
 
@@ -37,8 +37,8 @@ This guide outlines the complete end-to-end production deployment instructions f
 
 | Variable | Required | Example Value | Description |
 |---|---|---|---|
-| `VITE_API_URL` | Yes | `https://aptitude-api.onrender.com` | Backend REST API root URL |
-| `VITE_SOCKET_URL` | Yes | `wss://aptitude-api.onrender.com` | WebSocket endpoint for live monitoring |
+| `VITE_API_URL` | Yes | `https://thinqloudapti.onrender.com` | Backend REST API root URL |
+| `VITE_SOCKET_URL` | Yes | `wss://thinqloudapti.onrender.com` | WebSocket endpoint for live monitoring |
 | `VITE_APP_NAME` | Optional | `Thinqloud Aptitude Test Platform` | Display title shown across candidate interface |
 
 ---
@@ -64,10 +64,10 @@ https://github.com/Paras2611/thinqloudApti
    - **Redis Instance**: `aptitude-redis` (Free tier)
 5. In the initial setup prompt, supply the `ADMIN_PASSWORD` environment variable (e.g. `2@Paras`).
 6. Click **Apply**.
-7. Once deployed, note down your web service URL (e.g., `https://aptitude-api.onrender.com`).
+7. Once deployed, note down your web service URL (e.g., `https://thinqloudapti.onrender.com`).
 8. Verify health status by visiting:
    ```
-   https://aptitude-api.onrender.com/api/health
+   https://thinqloudapti.onrender.com/api/health
    ```
    Expected response:
    ```json
@@ -86,9 +86,9 @@ https://github.com/Paras2611/thinqloudApti
    - **Root Directory**: `frontend` *(Click Edit and select the `frontend` folder)*
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
-5. Expand **Environment Variables** and add:
-   - `VITE_API_URL` = `https://<YOUR-RENDER-API-URL>` (e.g. `https://aptitude-api.onrender.com`)
-   - `VITE_SOCKET_URL` = `wss://<YOUR-RENDER-API-URL>` (e.g. `wss://aptitude-api.onrender.com`)
+5. Expand **Environment Variables** (or leave as configured in `vercel.json`):
+   - `VITE_API_URL` = `https://thinqloudapti.onrender.com`
+   - `VITE_SOCKET_URL` = `wss://thinqloudapti.onrender.com`
    - `VITE_APP_NAME` = `Thinqloud Aptitude Platform`
 6. Click **Deploy**.
 7. Once the build finishes, copy your live Vercel URL (e.g. `https://thinqloud-apti.vercel.app`).
@@ -99,7 +99,7 @@ https://github.com/Paras2611/thinqloudApti
 
 Because the frontend and backend are hosted on separate domains, allow requests from Vercel:
 
-1. Go to your **Render Dashboard** $\to$ Select **aptitude-api**.
+1. Go to your **Render Dashboard** $\to$ Select **thinqloudapti**.
 2. Navigate to the **Environment** tab.
 3. Add or update the variable:
    - **Key**: `FRONTEND_URL`

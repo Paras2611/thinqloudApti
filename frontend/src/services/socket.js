@@ -4,7 +4,7 @@ let socket = null;
 
 export function getSocket() {
   if (!socket) {
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '/');
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://thinqloudapti.onrender.com');
     socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true,

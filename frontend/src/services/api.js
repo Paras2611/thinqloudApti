@@ -1,7 +1,14 @@
 import axios from 'axios';
 
+let rawBase = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : 'https://thinqloudapti.onrender.com/api');
+
+// Normalize baseURL so it always points to the /api namespace
+if (rawBase && !rawBase.endsWith('/api') && !rawBase.endsWith('/api/')) {
+  rawBase = `${rawBase.replace(/\/+$/, '')}/api`;
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: rawBase,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json'

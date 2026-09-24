@@ -2,8 +2,8 @@
 > **Session-Based Campus Placement Screening System**  
 > *Author: Paras Jagadish Patil (`paras.jagadish.patil@gmail.com`) · Version 1.0.0*
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_ORG/aptitude-test&project-name=aptitude-test-frontend&env=VITE_API_URL,VITE_APP_NAME,VITE_SOCKET_URL&envDescription=Backend+API+URL+from+Render+deployment)
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/YOUR_ORG/aptitude-test)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Paras2611/thinqloudApti&project-name=aptitude-test-frontend&env=VITE_API_URL,VITE_APP_NAME,VITE_SOCKET_URL&envDescription=Backend+API+URL+from+Render+deployment)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Paras2611/thinqloudApti)
 
 ---
 

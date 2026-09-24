@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Lock, Mail, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { Shield, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
 import Navbar from '../components/Navbar';
 
 export default function AdminLogin() {
@@ -11,12 +11,6 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const { loginAdmin } = useAuth();
   const navigate = useNavigate();
-
-  const handleFillDemo = () => {
-    setEmail('paras.jagadish.patil@gmail.com');
-    setPassword('2@Paras');
-    setError('');
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,22 +39,6 @@ export default function AdminLogin() {
             </div>
             <h2 className="text-2xl font-bold text-white tracking-tight">System Admin Console</h2>
             <p className="text-xs text-slate-400 mt-1">Campus Placement Test Administration</p>
-          </div>
-
-          {/* Quick Demo Credentials Box */}
-          <div className="mb-6 p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between">
-            <div className="text-xs text-indigo-200">
-              <span className="font-semibold block">Seed Admin Account</span>
-              <span className="text-[11px] text-indigo-300/80">paras.jagadish.patil@gmail.com</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleFillDemo}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm flex items-center space-x-1"
-            >
-              <Sparkles className="w-3 h-3" />
-              <span>Fill Seed</span>
-            </button>
           </div>
 
           {error && (

@@ -45,12 +45,6 @@ export default function LandingPage() {
                 <span>Placement Admin Portal</span>
               </Link>
             </div>
-
-            {/* Seed Admin Banner */}
-            <div className="mt-8 inline-block p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400">
-              <span className="text-slate-300 font-medium">Seed Admin Credentials: </span>
-              <code className="text-indigo-400 bg-indigo-950/60 px-1.5 py-0.5 rounded">paras.jagadish.patil@gmail.com</code> / <code className="text-indigo-400 bg-indigo-950/60 px-1.5 py-0.5 rounded">2@Paras</code>
-            </div>
           </div>
         </section>
 

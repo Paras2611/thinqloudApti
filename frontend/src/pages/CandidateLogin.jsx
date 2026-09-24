@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Award, Mail, Lock, User, Hash, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { Award, Mail, Lock, User, Hash, ArrowRight, AlertCircle } from 'lucide-react';
 import Navbar from '../components/Navbar';
 
 export default function CandidateLogin() {
@@ -16,13 +16,6 @@ export default function CandidateLogin() {
 
   const { loginCandidate, registerCandidate } = useAuth();
   const navigate = useNavigate();
-
-  const handleFillDemo = () => {
-    setIsRegister(false);
-    setIdentifier('candidate.demo@thinqloud.com');
-    setPassword('Demo@123');
-    setError('');
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -83,24 +76,6 @@ export default function CandidateLogin() {
               Self-Register
             </button>
           </div>
-
-          {/* Quick Demo Candidate box */}
-          {!isRegister && (
-            <div className="mb-6 p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-between">
-              <div className="text-xs text-emerald-200">
-                <span className="font-semibold block">Demo Candidate Account</span>
-                <span className="text-[11px] text-emerald-300/80">candidate.demo@thinqloud.com</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleFillDemo}
-                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm flex items-center space-x-1"
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>Fill Demo</span>
-              </button>
-            </div>
-          )}
 
           {error && (
             <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start space-x-2 text-rose-300 text-xs">
